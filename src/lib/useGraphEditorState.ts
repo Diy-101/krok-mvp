@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { GraphNode as GraphNodeType, GraphLink } from "@/types/graph";
 import {
@@ -8,7 +8,17 @@ import {
   ensureNodesHaveHealth,
   ensureNodeListHasHealth,
 } from "./utils";
-import { createDefaultNodeProperties } from "./nodeRedUtils";
+import {
+  createDefaultNodeProperties,
+  validateNodeProperties,
+} from "./nodeRedUtils";
+import {
+  nodesApi,
+  flowsApi,
+  apiNodeToGraphNode,
+  graphNodeToApiNode,
+  apiFlowToFlow,
+} from "./api";
 
 interface Flow {
   id: string;
@@ -47,7 +57,102 @@ export function useGraphEditorState() {
   } | null>(null);
   const [modalNodeId, setModalNodeId] = useState<string | null>(null);
 
-  // CRUD для flows
+  // Загрузка данных с сервера
+  const loadFlows = useCallback(async () => {
+    try {
+      const apiFlows = await flowsApi.getAll();
+      const flowsData = apiFlows.map(apiFlowToFlow);
+      setFlows(flowsData);
+
+      // Если есть потоки, загружаем узлы для активного потока
+      if (flowsData.length > 0 && activeFlowId) {
+        await loadNodesForFlow(activeFlowId);
+      }
+    } catch (error) {
+      console.error("Error loading flows:", error);
+      toast.error("Ошибка загрузки потоков");
+    }
+  }, [activeFlowId]);
+
+  const loadNodesForFlow = useCallback(async (flowId: string) => {
+    try {
+      const apiNodes = await nodesApi.getAll(flowId);
+      const nodesData = apiNodes.map(apiNodeToGraphNode);
+      setNodes(() => nodesData);
+    } catch (error) {
+      console.error("Error loading nodes:", error);
+      toast.error("Ошибка загрузки узлов");
+    }
+  }, []);
+
+  // Сохранение узла на сервере
+  const saveNodeToServer = useCallback(
+    async (node: GraphNodeType) => {
+      try {
+        if (!activeFlowId) {
+          throw new Error("Нет активного потока");
+        }
+
+        const apiNode = graphNodeToApiNode(node, activeFlowId);
+        await nodesApi.create(apiNode);
+        toast.success("Узел сохранен на сервере");
+      } catch (error) {
+        console.error("Error saving node:", error);
+        toast.error("Ошибка сохранения узла");
+        throw error;
+      }
+    },
+    [activeFlowId]
+  );
+
+  // Обновление узла на сервере
+  const updateNodeOnServer = useCallback(
+    async (nodeId: string, updates: Partial<GraphNodeType>) => {
+      try {
+        const updateData: any = {};
+        if (updates.name !== undefined) updateData.name = updates.name;
+        if (updates.properties !== undefined)
+          updateData.properties = updates.properties;
+        if (updates.x !== undefined) updateData.position_x = updates.x;
+        if (updates.y !== undefined) updateData.position_y = updates.y;
+        if (updates.status !== undefined) updateData.status = updates.status;
+        if (updates.health !== undefined) updateData.health = updates.health;
+
+        await nodesApi.update(nodeId, updateData);
+        toast.success("Узел обновлен на сервере");
+      } catch (error) {
+        console.error("Error updating node:", error);
+        toast.error("Ошибка обновления узла");
+        throw error;
+      }
+    },
+    []
+  );
+
+  // Удаление узла с сервера
+  const deleteNodeFromServer = useCallback(async (nodeId: string) => {
+    try {
+      await nodesApi.delete(nodeId);
+      toast.success("Узел удален с сервера");
+    } catch (error) {
+      console.error("Error deleting node:", error);
+      toast.error("Ошибка удаления узла");
+      throw error;
+    }
+  }, []);
+
+  // Загрузка данных при монтировании компонента
+  useEffect(() => {
+    loadFlows();
+  }, [loadFlows]);
+
+  // Загрузка узлов при смене активного потока
+  useEffect(() => {
+    if (activeFlowId) {
+      loadNodesForFlow(activeFlowId);
+    }
+  }, [activeFlowId, loadNodesForFlow]);
+
   const handleAddFlow = () => {
     const newFlow: Flow = {
       id: generateFlowId(),
@@ -100,22 +205,33 @@ export function useGraphEditorState() {
     );
   };
 
-  const handleAddNode = useCallback((type: NodeType) => {
-    const newNode: GraphNodeType = {
-      id: generateNodeId(),
-      type,
-      name: `Новый ${type}`,
-      x: 100 + Math.random() * 200,
-      y: 100 + Math.random() * 200,
-      health: Math.floor(Math.random() * 100),
-      status: "healthy",
-      properties: createDefaultNodeProperties(type),
-    };
-    setNodes((prev) => [...prev, newNode]);
-    setSelectedNodeId(newNode.id);
-    setHasChanges(true);
-    toast.success(`${newNode.name} добавлен на граф`);
-  }, []);
+  const handleAddNode = useCallback(
+    (type: NodeType) => {
+      const newNode: GraphNodeType = {
+        id: generateNodeId(),
+        type,
+        name: type.charAt(0).toUpperCase() + type.slice(1),
+        x: Math.random() * 400 + 100,
+        y: Math.random() * 300 + 100,
+        health: Math.floor(Math.random() * 100),
+        status: "healthy",
+        properties: createDefaultNodeProperties(type),
+      };
+      setNodes((prev) => [...prev, newNode]);
+      setSelectedNodeId(newNode.id);
+      setHasChanges(true);
+
+      // Сохраняем на сервере
+      saveNodeToServer(newNode).catch(() => {
+        // Если сохранение не удалось, удаляем узел из локального состояния
+        setNodes((prev) => prev.filter((n) => n.id !== newNode.id));
+        setSelectedNodeId(null);
+      });
+
+      toast.success(`${newNode.name} добавлен на граф`);
+    },
+    [saveNodeToServer]
+  );
 
   const handleSelectNode = useCallback((nodeId: string) => {
     setSelectedNodeId(nodeId);
@@ -151,8 +267,14 @@ export function useGraphEditorState() {
         return updated;
       });
       setHasChanges(true);
+
+      // Обновляем на сервере
+      updateNodeOnServer(nodeId, updates).catch(() => {
+        // Если обновление не удалось, можно показать уведомление
+        toast.error("Не удалось сохранить изменения на сервере");
+      });
     },
-    []
+    [updateNodeOnServer]
   );
 
   const handleDeleteNode = useCallback(
@@ -162,9 +284,16 @@ export function useGraphEditorState() {
         setSelectedNodeId(null);
       }
       setHasChanges(true);
+
+      // Удаляем с сервера
+      deleteNodeFromServer(nodeId).catch(() => {
+        // Если удаление не удалось, можно показать уведомление
+        toast.error("Не удалось удалить узел с сервера");
+      });
+
       toast.success("Узел удален");
     },
-    [selectedNodeId]
+    [selectedNodeId, deleteNodeFromServer]
   );
 
   const handleSave = () => {
