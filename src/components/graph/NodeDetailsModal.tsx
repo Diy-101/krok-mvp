@@ -44,8 +44,17 @@ export const NodeDetailsModal: React.FC<NodeDetailsModalProps> = ({
     }));
   };
 
+  // Обработчик изменения имени узла
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    setLocalNode((prev) => ({
+      ...prev,
+      name: e.target.value,
+    }));
+  };
+
   // Обработчик сохранения
-  const handleSave = async () => {
+  const handleSave = () => {
     setIsSaving(true);
 
     // Валидация свойств
@@ -62,10 +71,12 @@ export const NodeDetailsModal: React.FC<NodeDetailsModalProps> = ({
     }
 
     try {
-      await onUpdate(localNode.id, localNode);
+      console.log("Saving node:", localNode.id, localNode);
+      onUpdate(localNode.id, localNode);
       toast.success("Настройки узла сохранены");
       onClose();
     } catch (error) {
+      console.error("Error saving node:", error);
       toast.error("Ошибка при сохранении настроек");
     } finally {
       setIsSaving(false);
@@ -83,9 +94,12 @@ export const NodeDetailsModal: React.FC<NodeDetailsModalProps> = ({
             type="text"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={value}
-            onChange={(e) =>
-              handlePropertyChange(property.name, e.target.value)
-            }
+            onChange={(e) => {
+              e.stopPropagation();
+              handlePropertyChange(property.name, e.target.value);
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
             placeholder={property.placeholder}
           />
         );
@@ -96,9 +110,12 @@ export const NodeDetailsModal: React.FC<NodeDetailsModalProps> = ({
             type="number"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={value}
-            onChange={(e) =>
-              handlePropertyChange(property.name, Number(e.target.value))
-            }
+            onChange={(e) => {
+              e.stopPropagation();
+              handlePropertyChange(property.name, Number(e.target.value));
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
             min={property.min}
             max={property.max}
             step={property.step || 1}
@@ -113,9 +130,12 @@ export const NodeDetailsModal: React.FC<NodeDetailsModalProps> = ({
               type="checkbox"
               className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
               checked={value}
-              onChange={(e) =>
-                handlePropertyChange(property.name, e.target.checked)
-              }
+              onChange={(e) => {
+                e.stopPropagation();
+                handlePropertyChange(property.name, e.target.checked);
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
             />
             <span className="text-sm text-gray-700">Включено</span>
           </label>
@@ -126,9 +146,12 @@ export const NodeDetailsModal: React.FC<NodeDetailsModalProps> = ({
           <select
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={value}
-            onChange={(e) =>
-              handlePropertyChange(property.name, e.target.value)
-            }
+            onChange={(e) => {
+              e.stopPropagation();
+              handlePropertyChange(property.name, e.target.value);
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
             {property.options?.map((option: any) => (
               <option key={option.value} value={option.value}>
@@ -143,9 +166,12 @@ export const NodeDetailsModal: React.FC<NodeDetailsModalProps> = ({
           <textarea
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={value}
-            onChange={(e) =>
-              handlePropertyChange(property.name, e.target.value)
-            }
+            onChange={(e) => {
+              e.stopPropagation();
+              handlePropertyChange(property.name, e.target.value);
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
             rows={6}
             placeholder={property.placeholder}
           />
@@ -157,9 +183,12 @@ export const NodeDetailsModal: React.FC<NodeDetailsModalProps> = ({
             type="password"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={value}
-            onChange={(e) =>
-              handlePropertyChange(property.name, e.target.value)
-            }
+            onChange={(e) => {
+              e.stopPropagation();
+              handlePropertyChange(property.name, e.target.value);
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
             placeholder={property.placeholder}
           />
         );
@@ -172,6 +201,7 @@ export const NodeDetailsModal: React.FC<NodeDetailsModalProps> = ({
               typeof value === "string" ? value : JSON.stringify(value, null, 2)
             }
             onChange={(e) => {
+              e.stopPropagation();
               try {
                 const parsed = JSON.parse(e.target.value);
                 handlePropertyChange(property.name, parsed);
@@ -179,6 +209,8 @@ export const NodeDetailsModal: React.FC<NodeDetailsModalProps> = ({
                 handlePropertyChange(property.name, e.target.value);
               }
             }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
             rows={8}
             placeholder={property.placeholder}
           />
@@ -190,9 +222,12 @@ export const NodeDetailsModal: React.FC<NodeDetailsModalProps> = ({
             type="text"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={value}
-            onChange={(e) =>
-              handlePropertyChange(property.name, e.target.value)
-            }
+            onChange={(e) => {
+              e.stopPropagation();
+              handlePropertyChange(property.name, e.target.value);
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
             placeholder={property.placeholder}
           />
         );
@@ -205,6 +240,8 @@ export const NodeDetailsModal: React.FC<NodeDetailsModalProps> = ({
         isOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"
       }`}
       style={{ maxWidth: "100vw" }}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       {isOpen && (
         <>
@@ -221,7 +258,10 @@ export const NodeDetailsModal: React.FC<NodeDetailsModalProps> = ({
                 </p>
               </div>
               <button
-                onClick={onClose}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose();
+                }}
                 className="text-gray-500 hover:text-gray-700 transition-colors p-1"
               >
                 <X className="h-5 w-5" />
@@ -257,9 +297,7 @@ export const NodeDetailsModal: React.FC<NodeDetailsModalProps> = ({
                   <input
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     value={localNode.name}
-                    onChange={(e) =>
-                      setLocalNode({ ...localNode, name: e.target.value })
-                    }
+                    onChange={handleNameChange}
                     placeholder="Введите название узла"
                   />
                 </div>
@@ -345,13 +383,19 @@ export const NodeDetailsModal: React.FC<NodeDetailsModalProps> = ({
           <div className="flex gap-3 p-4 border-t bg-gray-50">
             <button
               className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 font-medium rounded-md hover:bg-gray-300 transition-colors"
-              onClick={onClose}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
             >
               Отмена
             </button>
             <button
               className="flex-1 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center"
-              onClick={handleSave}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSave();
+              }}
               disabled={isSaving}
             >
               {isSaving ? (

@@ -142,11 +142,14 @@ export function useGraphEditorState() {
 
   const handleUpdateNode = useCallback(
     (nodeId: string, updates: Partial<GraphNodeType>) => {
-      setNodes((prev) =>
-        prev.map((node) =>
+      console.log("handleUpdateNode called:", nodeId, updates);
+      setNodes((prev) => {
+        const updated = prev.map((node) =>
           node.id === nodeId ? { ...node, ...updates } : node
-        )
-      );
+        );
+        console.log("Updated nodes:", updated);
+        return updated;
+      });
       setHasChanges(true);
     },
     []
