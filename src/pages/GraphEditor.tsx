@@ -2,11 +2,11 @@ import React, { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Save, 
-  Download, 
-  Upload, 
-  ZoomIn, 
+import {
+  Save,
+  Download,
+  Upload,
+  ZoomIn,
   ZoomOut,
   RotateCcw,
   Trash2,
@@ -85,15 +85,25 @@ export const GraphEditor: React.FC = () => {
     handleAddNodeAt,
   } = useGraphEditorState();
 
-  const activeFlow = flows.find((f) => f.id === activeFlowId)!;
-  const nodes = activeFlow.nodes.map((node) => ({
+  const activeFlow = flows.find((f) => f.id === activeFlowId);
+
+  // Если активный поток не найден, используем первый доступный или создаем дефолтный
+  const currentFlow = activeFlow ||
+    flows[0] || {
+      id: "default",
+      name: "Default Flow",
+      nodes: [],
+      links: [],
+    };
+
+  const nodes = currentFlow.nodes.map((node) => ({
     ...node,
     health:
       typeof node.health === "number"
         ? node.health
         : Math.floor(Math.random() * 100),
   }));
-  const links = activeFlow.links;
+  const links = currentFlow.links;
   const selectedNode = nodes.find((node) => node.id === selectedNodeId) || null;
   const mousePos = useMousePosition();
   const modalNode = nodes.find((n) => n.id === modalNodeId) || null;
@@ -384,7 +394,9 @@ export const GraphEditor: React.FC = () => {
                       dragPort={dragPort}
                       links={links}
                       nodes={nodes}
-                      onDoubleClick={() => setModalNodeId(node.id)}
+                      onDoubleClick={() => {
+                        setModalNodeId(node.id);
+                      }}
                     />
                   ))}
                 </>
@@ -399,9 +411,9 @@ export const GraphEditor: React.FC = () => {
               <div className="text-xs text-gray-500 mb-1">Имя потока</div>
               <input
                 className="w-full px-2 py-1 border rounded bg-white text-sm font-bold"
-                value={activeFlow.name}
+                value={currentFlow.name}
                 onChange={(e) =>
-                  handleRenameFlow(activeFlow.id, e.target.value)
+                  handleRenameFlow(currentFlow.id, e.target.value)
                 }
               />
             </div>
@@ -412,7 +424,7 @@ export const GraphEditor: React.FC = () => {
               links={links}
               onSelectLink={setSelectedLinkId}
               selectedLinkId={selectedLinkId}
-              flow={activeFlow}
+              flow={currentFlow}
               isNodeSelected={!!selectedNode}
             />
           </div>

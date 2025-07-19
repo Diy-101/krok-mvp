@@ -63,22 +63,39 @@ async function apiRequest<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
-  const response = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-    ...options,
-  });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.detail || `HTTP error! status: ${response.status}`
-    );
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+      ...options,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.detail || `HTTP error! status: ${response.status}`
+      );
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error("API request failed:", {
+      url,
+      error: error instanceof Error ? error.message : error,
+      type: error instanceof TypeError ? "Network/CORS error" : "HTTP error",
+    });
+
+    if (error instanceof TypeError && error.message.includes("fetch")) {
+      throw new Error(
+        "CORS error: Backend server may not be running or CORS not configured properly"
+      );
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 // API для узлов

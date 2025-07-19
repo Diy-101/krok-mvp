@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { X, Save, AlertCircle } from "lucide-react";
 import { GraphNode as GraphNodeType } from "@/types/graph";
 import {
@@ -52,6 +52,36 @@ export const NodeDetailsModal: React.FC<NodeDetailsModalProps> = ({
       name: e.target.value,
     }));
   };
+
+  // Предотвращение закрытия модального окна при кликах вне его
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const modalElement = document.querySelector(
+        '[data-modal="node-details"]'
+      );
+
+      // Проверяем, что модальное окно открыто и клик был вне его
+      if (
+        modalElement &&
+        modalElement.classList.contains("translate-x-0") &&
+        !modalElement.contains(target)
+      ) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside, true);
+      document.addEventListener("click", handleClickOutside, true);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside, true);
+      document.removeEventListener("click", handleClickOutside, true);
+    };
+  }, [isOpen, node.id]);
 
   // Обработчик сохранения
   const handleSave = () => {
@@ -236,16 +266,33 @@ export const NodeDetailsModal: React.FC<NodeDetailsModalProps> = ({
 
   return (
     <div
+      data-modal="node-details"
       className={`absolute top-0 right-[20rem] h-full w-[32rem] bg-white transition-all duration-300 ease-in-out border-l border-gray-200 flex flex-col overflow-hidden z-[50] ${
         isOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"
       }`}
       style={{ maxWidth: "100vw" }}
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
+      onMouseUp={(e) => e.stopPropagation()}
+      onMouseMove={(e) => e.stopPropagation()}
+      onMouseEnter={(e) => e.stopPropagation()}
+      onMouseLeave={(e) => e.stopPropagation()}
+      onFocus={(e) => e.stopPropagation()}
+      onBlur={(e) => e.stopPropagation()}
     >
       {isOpen && (
         <>
-          <div className="p-6 flex-1 overflow-y-auto">
+          <div
+            className="p-6 flex-1 overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
+            onMouseMove={(e) => e.stopPropagation()}
+            onMouseEnter={(e) => e.stopPropagation()}
+            onMouseLeave={(e) => e.stopPropagation()}
+            onFocus={(e) => e.stopPropagation()}
+            onBlur={(e) => e.stopPropagation()}
+          >
             {/* Header */}
             <div className="flex justify-between items-start mb-6">
               <div>
@@ -380,7 +427,17 @@ export const NodeDetailsModal: React.FC<NodeDetailsModalProps> = ({
           </div>
 
           {/* Footer с кнопками */}
-          <div className="flex gap-3 p-4 border-t bg-gray-50">
+          <div
+            className="flex gap-3 p-4 border-t bg-gray-50"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
+            onMouseMove={(e) => e.stopPropagation()}
+            onMouseEnter={(e) => e.stopPropagation()}
+            onMouseLeave={(e) => e.stopPropagation()}
+            onFocus={(e) => e.stopPropagation()}
+            onBlur={(e) => e.stopPropagation()}
+          >
             <button
               className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 font-medium rounded-md hover:bg-gray-300 transition-colors"
               onClick={(e) => {

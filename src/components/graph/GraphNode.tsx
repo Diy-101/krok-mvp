@@ -166,6 +166,23 @@ export const GraphNode: React.FC<GraphNodeProps> = React.memo(
       }
     }, [isSelected]);
 
+    const handleDoubleClick = (e: React.MouseEvent) => {
+      // Проверяем, есть ли открытое модальное окно
+      const modalElement = document.querySelector(
+        '[data-modal="node-details"]'
+      );
+
+      if (modalElement && modalElement.classList.contains("translate-x-0")) {
+        // Если модальное окно уже открыто, не открываем новое
+        e.stopPropagation();
+        return;
+      }
+
+      if (onDoubleClick) {
+        onDoubleClick();
+      }
+    };
+
     // Выбор компонента для отображения узла
     let NodeContent: React.ReactNode = null;
     switch (node.type) {
@@ -254,7 +271,7 @@ export const GraphNode: React.FC<GraphNodeProps> = React.memo(
         style={{ left: node.x, top: node.y }}
         onMouseDown={handleMouseDown}
         title={node.name}
-        onDoubleClick={onDoubleClick}
+        onDoubleClick={handleDoubleClick}
         tabIndex={0}
         onKeyDown={
           isSelected
