@@ -5,8 +5,8 @@ import {
   generateNodeId,
   generateLinkId,
   generateFlowId,
-  ensureNodesHaveHealth,
   ensureNodeListHasHealth,
+  ensureNodesHaveHealth,
 } from "./utils";
 import {
   createDefaultNodeProperties,
@@ -19,6 +19,7 @@ import {
   graphNodeToApiNode,
   apiFlowToFlow,
 } from "./api";
+import { useUser } from "@/contexts/UserContext";
 
 interface Flow {
   id: string;
@@ -36,17 +37,17 @@ type NodeType =
   | "storage";
 
 export function useGraphEditorState() {
-  const [flows, setFlows] = useState<Flow[]>(
-    ensureNodesHaveHealth([
-      {
-        id: "flow_1",
-        name: "Поток 1",
-        nodes: [],
-        links: [],
-      },
-    ])
-  );
-  const [activeFlowId, setActiveFlowId] = useState("flow_1");
+  const { currentUser } = useUser();
+
+  const [flows, setFlows] = useState<Flow[]>([
+    {
+      id: "default",
+      name: "Default Flow",
+      nodes: [],
+      links: [],
+    },
+  ]);
+  const [activeFlowId, setActiveFlowId] = useState<string>("default");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -57,11 +58,49 @@ export function useGraphEditorState() {
   } | null>(null);
   const [modalNodeId, setModalNodeId] = useState<string | null>(null);
 
+  // Все функции для nodes/links теперь работают только с nodes/links активного потока
+  const setNodes = (updater: (prev: GraphNodeType[]) => GraphNodeType[]) => {
+    if (!activeFlowId) {
+      console.warn(
+        "setNodes called but activeFlowId is not set:",
+        activeFlowId
+      );
+      return; // Защита от вызова до установки активного потока
+    }
+    console.log("setNodes called with activeFlowId:", activeFlowId);
+    setFlows((prev) =>
+      ensureNodesHaveHealth(
+        prev.map((f) =>
+          f.id === activeFlowId
+            ? { ...f, nodes: ensureNodeListHasHealth(updater(f.nodes)) }
+            : f
+        )
+      )
+    );
+  };
+  const setLinks = (updater: (prev: GraphLink[]) => GraphLink[]) => {
+    if (!activeFlowId) return; // Защита от вызова до установки активного потока
+    setFlows((prev) =>
+      ensureNodesHaveHealth(
+        prev.map((f) =>
+          f.id === activeFlowId ? { ...f, links: updater(f.links) } : f
+        )
+      )
+    );
+  };
+
   // Загрузка данных с сервера
   const loadFlows = useCallback(async () => {
+    console.log("loadFlows called, currentUser:", currentUser);
+    if (!currentUser) {
+      console.log("loadFlows: currentUser not available, skipping");
+      return;
+    }
+
     try {
-      const apiFlows = await flowsApi.getAll();
+      const apiFlows = await flowsApi.getAll(currentUser.id);
       const flowsData = apiFlows.map(apiFlowToFlow);
+      console.log("loadFlows: loaded flows from server:", flowsData);
       setFlows(flowsData);
 
       // Если есть потоки, загружаем узлы для активного потока
@@ -73,7 +112,7 @@ export function useGraphEditorState() {
       // Fallback: используем локальные данные
       toast.warning("Сервер недоступен, используются локальные данные");
     }
-  }, [activeFlowId]);
+  }, [activeFlowId, currentUser]);
 
   const loadNodesForFlow = useCallback(async (flowId: string) => {
     try {
@@ -95,13 +134,18 @@ export function useGraphEditorState() {
           throw new Error("Нет активного потока");
         }
 
+        console.log('saveNodeToServer called with node:', node, 'activeFlowId:', activeFlowId);
         const apiNode = graphNodeToApiNode(node, activeFlowId);
-        await nodesApi.create(apiNode);
+        console.log('apiNode for server:', apiNode);
+        
+        const savedNode = await nodesApi.create(apiNode);
+        console.log('Node saved to server:', savedNode);
         toast.success("Узел сохранен на сервере");
       } catch (error) {
         console.error("Error saving node:", error);
         // Fallback: сохраняем локально
         toast.warning("Сервер недоступен, данные сохранены локально");
+        throw error;
       }
     },
     [activeFlowId]
@@ -150,7 +194,9 @@ export function useGraphEditorState() {
 
   // Создание дефолтного потока, если нет потоков
   useEffect(() => {
+    console.log("useEffect for default flow: flows.length =", flows.length);
     if (flows.length === 0) {
+      console.log("Creating default flow...");
       const defaultFlow: Flow = {
         id: "default",
         name: "Default Flow",
@@ -159,6 +205,7 @@ export function useGraphEditorState() {
       };
       setFlows([defaultFlow]);
       setActiveFlowId("default");
+      console.log("Default flow created and set as active");
     }
   }, [flows.length]);
 
@@ -170,6 +217,11 @@ export function useGraphEditorState() {
   }, [activeFlowId, loadNodesForFlow]);
 
   const handleAddFlow = () => {
+    if (!currentUser) {
+      toast.error("Пользователь не авторизован");
+      return;
+    }
+
     const newFlow: Flow = {
       id: generateFlowId(),
       name: `Поток ${flows.length + 1}`,
@@ -180,6 +232,19 @@ export function useGraphEditorState() {
     setActiveFlowId(newFlow.id);
     setSelectedNodeId(null);
     setSelectedLinkId(null);
+    setHasChanges(true);
+
+    // Сохраняем поток на сервере
+    const apiFlow = {
+      flow_id: newFlow.id,
+      name: newFlow.name,
+      description: "",
+      user_id: currentUser.id,
+    };
+
+    flowsApi.create(apiFlow).catch(() => {
+      toast.warning("Поток создан локально (сервер недоступен)");
+    });
   };
   const handleSelectFlow = (flowId: string) => {
     setActiveFlowId(flowId);
@@ -199,30 +264,14 @@ export function useGraphEditorState() {
     setSelectedLinkId(null);
   };
 
-  // Все функции для nodes/links теперь работают только с nodes/links активного потока
-  const setNodes = (updater: (prev: GraphNodeType[]) => GraphNodeType[]) => {
-    setFlows((prev) =>
-      ensureNodesHaveHealth(
-        prev.map((f) =>
-          f.id === activeFlowId
-            ? { ...f, nodes: ensureNodeListHasHealth(updater(f.nodes)) }
-            : f
-        )
-      )
-    );
-  };
-  const setLinks = (updater: (prev: GraphLink[]) => GraphLink[]) => {
-    setFlows((prev) =>
-      ensureNodesHaveHealth(
-        prev.map((f) =>
-          f.id === activeFlowId ? { ...f, links: updater(f.links) } : f
-        )
-      )
-    );
-  };
-
   const handleAddNode = useCallback(
     (type: NodeType) => {
+      console.log(
+        "handleAddNode called with type:",
+        type,
+        "activeFlowId:",
+        activeFlowId
+      );
       const newNode: GraphNodeType = {
         id: generateNodeId(),
         type,
@@ -233,20 +282,29 @@ export function useGraphEditorState() {
         status: "healthy",
         properties: createDefaultNodeProperties(type),
       };
-      setNodes((prev) => [...prev, newNode]);
-      setSelectedNodeId(newNode.id);
-      setHasChanges(true);
+      console.log("Adding new node:", newNode);
 
-      // Сохраняем на сервере
-      saveNodeToServer(newNode).catch(() => {
-        // Если сохранение не удалось, удаляем узел из локального состояния
-        setNodes((prev) => prev.filter((n) => n.id !== newNode.id));
-        setSelectedNodeId(null);
-      });
-
-      toast.success(`${newNode.name} добавлен на граф`);
+      // Сначала сохраняем на сервере
+      saveNodeToServer(newNode)
+        .then(() => {
+          // Если сохранение успешно, добавляем локально
+          setNodes((prev) => [...prev, newNode]);
+          setSelectedNodeId(newNode.id);
+          setHasChanges(true);
+          toast.success(`${newNode.name} добавлен на граф`);
+        })
+        .catch((error) => {
+          console.error("Failed to save node to server:", error);
+          // Если сохранение не удалось, все равно добавляем локально
+          setNodes((prev) => [...prev, newNode]);
+          setSelectedNodeId(newNode.id);
+          setHasChanges(true);
+          toast.warning(
+            `${newNode.name} добавлен локально (сервер недоступен)`
+          );
+        });
     },
-    [saveNodeToServer]
+    [saveNodeToServer, activeFlowId]
   );
 
   const handleSelectNode = useCallback((nodeId: string) => {
@@ -454,10 +512,24 @@ export function useGraphEditorState() {
       status: "healthy",
       properties: createDefaultNodeProperties(type),
     };
-    setNodes((prev) => [...prev, newNode]);
-    setSelectedNodeId(newNode.id);
-    setHasChanges(true);
-    toast.success(`${newNode.name} добавлен на граф`);
+
+    // Сначала сохраняем на сервере
+    saveNodeToServer(newNode)
+      .then(() => {
+        // Если сохранение успешно, добавляем локально
+        setNodes((prev) => [...prev, newNode]);
+        setSelectedNodeId(newNode.id);
+        setHasChanges(true);
+        toast.success(`${newNode.name} добавлен на граф`);
+      })
+      .catch((error) => {
+        console.error("Failed to save node to server:", error);
+        // Если сохранение не удалось, все равно добавляем локально
+        setNodes((prev) => [...prev, newNode]);
+        setSelectedNodeId(newNode.id);
+        setHasChanges(true);
+        toast.warning(`${newNode.name} добавлен локально (сервер недоступен)`);
+      });
   };
 
   // Drag&drop портов

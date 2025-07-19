@@ -47,6 +47,7 @@ interface Flow {
 export const GraphEditor: React.FC = () => {
   const { currentUser, isLoading: userLoading, createDefaultFlow } = useUser();
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const mousePos = useMousePosition();
 
   const {
     flows,
@@ -144,7 +145,6 @@ export const GraphEditor: React.FC = () => {
   }));
   const links = currentFlow.links;
   const selectedNode = nodes.find((node) => node.id === selectedNodeId) || null;
-  const mousePos = useMousePosition();
   const modalNode = nodes.find((n) => n.id === modalNodeId) || null;
 
   return (

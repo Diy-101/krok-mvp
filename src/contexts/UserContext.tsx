@@ -34,21 +34,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<ApiUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Проверяем сохраненного пользователя при загрузке
-  useEffect(() => {
-    const savedUser = localStorage.getItem("currentUser");
-    if (savedUser) {
-      try {
-        const user = JSON.parse(savedUser);
-        setCurrentUser(user);
-      } catch (error) {
-        console.error("Error parsing saved user:", error);
-        localStorage.removeItem("currentUser");
-      }
-    }
-    setIsLoading(false);
-  }, []);
-
   const login = async (username: string, email?: string) => {
     try {
       setIsLoading(true);
@@ -86,6 +71,29 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       throw error;
     }
   };
+
+  // Проверяем сохраненного пользователя при загрузке
+  useEffect(() => {
+    const savedUser = localStorage.getItem("currentUser");
+    if (savedUser) {
+      try {
+        const user = JSON.parse(savedUser);
+        setCurrentUser(user);
+      } catch (error) {
+        console.error("Error parsing saved user:", error);
+        localStorage.removeItem("currentUser");
+      }
+    } else {
+      // Автоматически входим как root для тестирования
+      console.log("🔄 Автоматический вход как root для тестирования...");
+      login("root").catch(() => {
+        console.log(
+          "❌ Не удалось войти как root, показываем модальное окно входа"
+        );
+      });
+    }
+    setIsLoading(false);
+  }, []);
 
   const value: UserContextType = {
     currentUser,
