@@ -1,6 +1,15 @@
 const API_BASE_URL = "http://localhost:8000/api/v1";
 
 // Типы для API
+export interface ApiUser {
+  id: number;
+  username: string;
+  email?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
 export interface ApiNode {
   id: number;
   node_id: string;
@@ -21,8 +30,21 @@ export interface ApiFlow {
   flow_id: string;
   name: string;
   description?: string;
+  user_id: number;
   created_at: string;
   updated_at?: string;
+}
+
+export interface CreateUserRequest {
+  username: string;
+  email?: string;
+  is_active?: boolean;
+}
+
+export interface UpdateUserRequest {
+  username?: string;
+  email?: string;
+  is_active?: boolean;
 }
 
 export interface CreateNodeRequest {
@@ -50,6 +72,7 @@ export interface CreateFlowRequest {
   flow_id: string;
   name: string;
   description?: string;
+  user_id: number;
 }
 
 export interface UpdateFlowRequest {
@@ -142,11 +165,57 @@ export const nodesApi = {
   },
 };
 
+// API для пользователей
+export const usersApi = {
+  // Получить всех пользователей
+  getAll: (): Promise<ApiUser[]> => {
+    return apiRequest<ApiUser[]>("/users/");
+  },
+
+  // Получить пользователя по ID
+  getById: (userId: number): Promise<ApiUser> => {
+    return apiRequest<ApiUser>(`/users/${userId}`);
+  },
+
+  // Создать пользователя
+  create: (user: CreateUserRequest): Promise<ApiUser> => {
+    return apiRequest<ApiUser>("/users/", {
+      method: "POST",
+      body: JSON.stringify(user),
+    });
+  },
+
+  // Обновить пользователя
+  update: (userId: number, updates: UpdateUserRequest): Promise<ApiUser> => {
+    return apiRequest<ApiUser>(`/users/${userId}`, {
+      method: "PUT",
+      body: JSON.stringify(updates),
+    });
+  },
+
+  // Удалить пользователя
+  delete: (userId: number): Promise<{ message: string }> => {
+    return apiRequest<{ message: string }>(`/users/${userId}`, {
+      method: "DELETE",
+    });
+  },
+
+  // Получить или создать пользователя
+  getOrCreate: (username: string, email?: string): Promise<ApiUser> => {
+    const params = new URLSearchParams({ username });
+    if (email) params.append("email", email);
+    return apiRequest<ApiUser>(`/users/get-or-create?${params}`, {
+      method: "POST",
+    });
+  },
+};
+
 // API для потоков
 export const flowsApi = {
   // Получить все потоки
-  getAll: (): Promise<ApiFlow[]> => {
-    return apiRequest<ApiFlow[]>("/flows/");
+  getAll: (userId?: number): Promise<ApiFlow[]> => {
+    const params = userId ? `?user_id=${userId}` : "";
+    return apiRequest<ApiFlow[]>(`/flows/${params}`);
   },
 
   // Получить поток по ID
@@ -174,6 +243,13 @@ export const flowsApi = {
   delete: (flowId: string): Promise<{ message: string }> => {
     return apiRequest<{ message: string }>(`/flows/${flowId}`, {
       method: "DELETE",
+    });
+  },
+
+  // Создать дефолтный поток для пользователя
+  createDefaultForUser: (userId: number): Promise<ApiFlow> => {
+    return apiRequest<ApiFlow>(`/flows/create-default/${userId}`, {
+      method: "POST",
     });
   },
 };

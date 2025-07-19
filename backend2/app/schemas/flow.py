@@ -7,6 +7,7 @@ class FlowBase(BaseModel):
     flow_id: str
     name: str
     description: Optional[str] = None
+    user_id: int
 
 
 class FlowCreate(FlowBase):

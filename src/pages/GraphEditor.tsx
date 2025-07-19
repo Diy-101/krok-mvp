@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,8 @@ import { GraphEditorHeader } from "@/components/graph/GraphEditorHeader";
 import { FlowTabs } from "@/components/graph/FlowTabs";
 import { CanvasInfoOverlay } from "@/components/graph/CanvasInfoOverlay";
 import { useGraphEditorState } from "@/lib/useGraphEditorState";
+import { useUser } from "@/contexts/UserContext";
+import { LoginModal } from "@/components/LoginModal";
 
 // Новый тип для Flow
 interface Flow {
@@ -43,6 +45,9 @@ interface Flow {
 }
 
 export const GraphEditor: React.FC = () => {
+  const { currentUser, isLoading: userLoading, createDefaultFlow } = useUser();
+  const [showLoginModal, setShowLoginModal] = useState(false);
+
   const {
     flows,
     setFlows,
@@ -84,6 +89,40 @@ export const GraphEditor: React.FC = () => {
     handleCanvasDragOver,
     handleAddNodeAt,
   } = useGraphEditorState();
+
+  // Проверяем авторизацию пользователя
+  useEffect(() => {
+    if (!userLoading && !currentUser) {
+      setShowLoginModal(true);
+    }
+  }, [currentUser, userLoading]);
+
+  // Создаем дефолтный поток для нового пользователя
+  useEffect(() => {
+    if (currentUser && flows.length === 0) {
+      createDefaultFlow().catch(() => {
+        // Если не удалось создать поток на сервере, создаем локально
+        const defaultFlow = {
+          id: "default",
+          name: "Мой первый поток",
+          nodes: [],
+          links: [],
+        };
+        setFlows([defaultFlow]);
+        setActiveFlowId("default");
+      });
+    }
+  }, [currentUser, flows.length, createDefaultFlow]);
+
+  // Если пользователь не авторизован, показываем модальное окно входа
+  if (!currentUser) {
+    return (
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+      />
+    );
+  }
 
   const activeFlow = flows.find((f) => f.id === activeFlowId);
 
